@@ -290,7 +290,10 @@ public class DrivePortBlockEntity extends KineticBlockEntity {
         if (partner == null || level == null) {
             return super.getRenderBoundingBox();
         }
-        return new AABB(worldPosition).minmax(new AABB(partner.getBlockPos())).inflate(2.0D);
+        // 用世界锚点，避免跨结构时混用 plot 局部 BlockPos
+        Vec3 a = WorldSpace.worldLinkAnchor(this, facing());
+        Vec3 b = WorldSpace.worldLinkAnchor(partner, partner.facing());
+        return new AABB(a, b).inflate(2.0D);
     }
 
     @Override
