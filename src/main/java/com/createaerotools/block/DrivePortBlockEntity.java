@@ -191,6 +191,50 @@ public class DrivePortBlockEntity extends KineticBlockEntity {
         return neighbours;
     }
 
+    /**
+     * 跨 SubLevel 时 Create 无法把对端 BlockPos 当邻居；由 {@link DriveLinkTracker}
+     * 每 tick 调用此方法用 {@link #setSpeed} 同步转速。
+     */
+    void syncCrossLevelSpeed(DrivePortBlockEntity other) {
+        if (other == null || other.isRemoved()) {
+            return;
+        }
+        float ratio = kineticRatio(other);
+        float mine = getSpeed();
+        float theirs = other.getSpeed();
+        float expectedOther = mine * ratio;
+        float expectedMine = theirs * ratio;
+
+        boolean bothPowered = Math.abs(mine) > 0.5F && Math.abs(theirs) > 0.5F
+                && Math.abs(theirs - expectedOther) > 1.0F
+                && Math.abs(mine - expectedMine) > 1.0F;
+        if (bothPowered && hasSource() && other.hasSource()) {
+            setStatus(LinkStatus.CONFLICT);
+            other.setStatus(LinkStatus.CONFLICT);
+            return;
+        }
+
+        if (status == LinkStatus.CONFLICT || other.status == LinkStatus.CONFLICT) {
+            if (!bothPowered) {
+                setStatus(LinkStatus.CONNECTED);
+                other.setStatus(LinkStatus.CONNECTED);
+            } else {
+                return;
+            }
+        }
+
+        // 主端（或转速更大的一侧）推向对端
+        if (Math.abs(mine) >= Math.abs(theirs)) {
+            if (Math.abs(other.getSpeed() - expectedOther) > 0.05F) {
+                other.setSpeed(expectedOther);
+                other.onSpeedChanged(expectedOther);
+            }
+        } else if (Math.abs(getSpeed() - expectedMine) > 0.05F) {
+            setSpeed(expectedMine);
+            onSpeedChanged(expectedMine);
+        }
+    }
+
     @Override
     public float propagateRotationTo(KineticBlockEntity target, BlockState stateFrom, BlockState stateTo,
                                      BlockPos diff, boolean connectedViaAxes, boolean connectedViaCogs) {

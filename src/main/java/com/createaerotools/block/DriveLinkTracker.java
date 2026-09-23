@@ -390,6 +390,10 @@ public final class DriveLinkTracker {
         DriveShaftPhysics.sync(be, partner);
         be.setStatus(DrivePortBlockEntity.LinkStatus.CONNECTED);
         partner.setStatus(DrivePortBlockEntity.LinkStatus.CONNECTED);
+        // Create 动能网络只在同一 Level 内传播；跨结构时用转速同步兜底
+        if (be.getLevel() != partner.getLevel()) {
+            be.syncCrossLevelSpeed(partner);
+        }
     }
 
     /**
