@@ -129,11 +129,33 @@ public final class StructureGroups {
         }
     }
 
-    public static boolean restore(ServerLevel level, List<CompoundTag> stored, Vec3 releaseAt, @Nullable UUID anchorId) {
+    /**
+     * 释放结果：已加载数量 + 仍应留在收纳器里的原始 payload（加载失败的那些）。
+     */
+    public record RestoreOutcome(int loaded, List<CompoundTag> remaining) {
+        public boolean anyLoaded() {
+            return loaded > 0;
+        }
+
+        public boolean allLoaded() {
+            return remaining.isEmpty() && loaded > 0;
+        }
+    }
+
+    /**
+     * 按依赖顺序加载结构。失败的条目放进 {@link RestoreOutcome#remaining}，
+     * 调用方只应从物品中移除已成功加载的，避免部分失败时整包清空。
+     */
+    public static RestoreOutcome restore(ServerLevel level, List<CompoundTag> stored, Vec3 releaseAt, @Nullable UUID anchorId) {
         Map<UUID, UUID> remap = new HashMap<>();
         Vec3 anchorPos = null;
-        List<CompoundTag> payloads = new ArrayList<>();
+        record Entry(CompoundTag original, CompoundTag working) {
+        }
+        List<Entry> entries = new ArrayList<>();
         for (CompoundTag original : stored) {
+            if (!original.hasUUID("uuid")) {
+                continue;
+            }
             CompoundTag payload = original.copy();
             UUID oldId = payload.getUUID("uuid");
             UUID newId = UUID.randomUUID();
@@ -141,36 +163,59 @@ public final class StructureGroups {
             if (anchorId != null && oldId.equals(anchorId) && payload.contains("pose")) {
                 anchorPos = CapsulePayloads.posePosition(payload);
             }
-            payloads.add(payload);
+            entries.add(new Entry(original, payload));
         }
-        if (anchorPos == null && !payloads.isEmpty() && payloads.getFirst().contains("pose")) {
-            anchorPos = CapsulePayloads.posePosition(payloads.getFirst());
+        if (entries.isEmpty()) {
+            return new RestoreOutcome(0, List.copyOf(stored));
+        }
+        if (anchorPos == null && entries.getFirst().working.contains("pose")) {
+            anchorPos = CapsulePayloads.posePosition(entries.getFirst().working);
         }
         Vec3 delta = anchorPos == null ? Vec3.ZERO : releaseAt.subtract(anchorPos);
-        for (CompoundTag payload : payloads) {
-            UUID oldId = payload.getUUID("uuid");
-            payload.putUUID("uuid", remap.get(oldId));
-            remapDependencies(payload, remap);
-            CapsulePayloads.stripVelocities(payload);
-            CapsulePayloads.translateBy(payload, delta.x, delta.y, delta.z);
+        for (Entry entry : entries) {
+            UUID oldId = entry.working.getUUID("uuid");
+            entry.working.putUUID("uuid", remap.get(oldId));
+            remapDependencies(entry.working, remap);
+            CapsulePayloads.stripVelocities(entry.working);
+            CapsulePayloads.translateBy(entry.working, delta.x, delta.y, delta.z);
         }
 
-        boolean any = false;
-        for (CompoundTag payload : sortByDependencies(payloads)) {
-            ServerSubLevel loaded = SubLevelSerializer.fullyLoad(level, SubLevelSerializer.fromData(payload));
-            if (loaded == null || loaded.isRemoved()) {
+        Map<UUID, Entry> byNewId = new HashMap<>();
+        for (Entry entry : entries) {
+            byNewId.put(entry.working.getUUID("uuid"), entry);
+        }
+        List<CompoundTag> worklist = new ArrayList<>();
+        for (Entry entry : entries) {
+            worklist.add(entry.working);
+        }
+
+        int loaded = 0;
+        List<CompoundTag> remaining = new ArrayList<>();
+        // 缺 uuid 的原始条目原样保留
+        for (CompoundTag original : stored) {
+            if (!original.hasUUID("uuid")) {
+                remaining.add(original.copy());
+            }
+        }
+        for (CompoundTag payload : sortByDependencies(worklist)) {
+            Entry entry = byNewId.get(payload.getUUID("uuid"));
+            ServerSubLevel sub = SubLevelSerializer.fullyLoad(level, SubLevelSerializer.fromData(payload));
+            if (sub == null || sub.isRemoved()) {
+                if (entry != null) {
+                    remaining.add(entry.original.copy());
+                }
                 continue;
             }
-            loaded.latestLinearVelocity.set(0.0D, 0.0D, 0.0D);
-            loaded.latestAngularVelocity.set(0.0D, 0.0D, 0.0D);
+            sub.latestLinearVelocity.set(0.0D, 0.0D, 0.0D);
+            sub.latestAngularVelocity.set(0.0D, 0.0D, 0.0D);
             if (payload.contains("pose")) {
                 Vec3 pos = CapsulePayloads.posePosition(payload);
-                loaded.logicalPose().position().set(pos.x, pos.y, pos.z);
+                sub.logicalPose().position().set(pos.x, pos.y, pos.z);
             }
-            loaded.updateLastPose();
-            any = true;
+            sub.updateLastPose();
+            loaded++;
         }
-        return any;
+        return new RestoreOutcome(loaded, List.copyOf(remaining));
     }
 
     public static boolean contains(List<ServerSubLevel> group, @Nullable UUID structureId) {

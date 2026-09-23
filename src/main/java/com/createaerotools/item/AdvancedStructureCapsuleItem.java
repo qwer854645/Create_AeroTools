@@ -318,25 +318,50 @@ public class AdvancedStructureCapsuleItem extends Item {
             return false;
         }
         UUID anchor = itemTag.hasUUID(TAG_ANCHOR) ? itemTag.getUUID(TAG_ANCHOR) : null;
-        if (!StructureGroups.restore(serverLevel, payloads, at, anchor)) {
+        StructureGroups.RestoreOutcome outcome = StructureGroups.restore(serverLevel, payloads, at, anchor);
+        if (!outcome.anyLoaded()) {
             player.displayClientMessage(Component.translatable("createaerotools.message.capsule_release_fail")
                     .withStyle(ChatFormatting.RED), true);
             return false;
         }
 
-        itemTag.remove(TAG_STRUCTURES);
-        itemTag.remove(CapsulePayloads.TAG_NAME);
-        itemTag.remove(TAG_COUNT);
-        itemTag.remove(TAG_SIZE);
-        itemTag.remove(TAG_ANCHOR);
-        itemTag.remove(TAG_BOUND_POS);
-        itemTag.remove(TAG_BOUND_DIM);
+        if (outcome.allLoaded()) {
+            itemTag.remove(TAG_STRUCTURES);
+            itemTag.remove(CapsulePayloads.TAG_NAME);
+            itemTag.remove(TAG_COUNT);
+            itemTag.remove(TAG_SIZE);
+            itemTag.remove(TAG_ANCHOR);
+            itemTag.remove(TAG_BOUND_POS);
+            itemTag.remove(TAG_BOUND_DIM);
+        } else {
+            // 部分失败：只清掉已成功释放的，其余留在收纳器里
+            ListTag kept = new ListTag();
+            for (CompoundTag leftover : outcome.remaining()) {
+                kept.add(leftover);
+            }
+            itemTag.put(TAG_STRUCTURES, kept);
+            itemTag.putInt(TAG_COUNT, kept.size());
+            itemTag.putDouble(TAG_SIZE, CapsulePower.sizeOfStored(outcome.remaining()));
+            if (itemTag.hasUUID(TAG_ANCHOR)) {
+                UUID oldAnchor = itemTag.getUUID(TAG_ANCHOR);
+                boolean anchorKept = false;
+                for (CompoundTag leftover : outcome.remaining()) {
+                    if (leftover.hasUUID("uuid") && oldAnchor.equals(leftover.getUUID("uuid"))) {
+                        anchorKept = true;
+                        break;
+                    }
+                }
+                if (!anchorKept) {
+                    itemTag.remove(TAG_ANCHOR);
+                }
+            }
+        }
         if (itemTag.isEmpty()) {
             stack.remove(DataComponents.CUSTOM_DATA);
         } else {
             stack.set(DataComponents.CUSTOM_DATA, CustomData.of(itemTag));
         }
-        player.displayClientMessage(Component.translatable("createaerotools.message.adv_capsule_released", payloads.size()), true);
+        player.displayClientMessage(Component.translatable("createaerotools.message.adv_capsule_released", outcome.loaded()), true);
         serverLevel.playSound(null, BlockPos.containing(at), SoundEvents.ENDER_CHEST_OPEN, SoundSource.PLAYERS, 0.6F, 1.1F);
         return true;
     }
