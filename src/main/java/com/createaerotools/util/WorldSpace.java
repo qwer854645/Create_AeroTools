@@ -31,6 +31,11 @@ public final class WorldSpace {
     private WorldSpace() {
     }
 
+    /** 返回只读恒等位姿；调用方不得修改返回值。 */
+    private static Pose3dc identityPose() {
+        return IDENTITY;
+    }
+
     /** 该方块是否属于某个物理结构；不属于则返回 {@code null}。 */
     @Nullable
     public static UUID structureId(Level level, BlockPos pos) {
@@ -77,12 +82,12 @@ public final class WorldSpace {
 
     public static Pose3dc pose(Level level, BlockPos pos) {
         SubLevelAccess access = SableCompanion.INSTANCE.getContaining(level, pos);
-        return access != null ? access.logicalPose() : IDENTITY;
+        return access != null ? access.logicalPose() : identityPose();
     }
 
     public static Pose3dc poseOf(BlockEntity be) {
         SubLevelAccess access = SableCompanion.INSTANCE.getContaining(be);
-        return access != null ? access.logicalPose() : IDENTITY;
+        return access != null ? access.logicalPose() : identityPose();
     }
 
     public static Pose3dc renderPoseOf(BlockEntity be, float partialTick) {
@@ -90,7 +95,7 @@ public final class WorldSpace {
         if (access instanceof ClientSubLevelAccess client) {
             return client.renderPose(partialTick);
         }
-        return access != null ? access.logicalPose() : IDENTITY;
+        return access != null ? access.logicalPose() : identityPose();
     }
 
     /** 结构所在的父维度；在 SubLevel 上时返回外层世界。 */
@@ -147,10 +152,8 @@ public final class WorldSpace {
         if (access == null) {
             return SableCompanion.INSTANCE.projectOutOfSubLevel(level, click);
         }
-        if (click.distanceToSqr(Vec3.atCenterOf(pos)) <= 4.0D) {
-            return transformPosition(access.logicalPose(), click);
-        }
-        return click;
+        // 始终用结构位姿变换；大面上的点击也可能远离方块中心
+        return transformPosition(access.logicalPose(), click);
     }
 
     /**
