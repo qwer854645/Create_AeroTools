@@ -59,7 +59,9 @@ public final class DriveShaftPhysics {
     );
     private static final Vector3d JOINT_X = new Vector3d(1.0D, 0.0D, 0.0D);
     private static final double FACE_INSET = 0.22D;
-    private static final double RESIZE_HALF_TOLERANCE = 0.2D;
+    private static final double RESIZE_HALF_TOLERANCE = 0.35D;
+    /** 连续多少物理步都超差才重建，避免相对运动下每步 thrash。 */
+    private static final int RESIZE_DEBOUNCE = 4;
     /** 指令可比实测长度领先多少，再等结构跟上。 */
     private static final double PNEUMATIC_MAX_LEAD = 0.35D;
     /** 约在这么多秒内达到动作速度 → 力 ≈ μ·(speed / time)。 */
@@ -112,6 +114,9 @@ public final class DriveShaftPhysics {
             }
             DrivePortBlockEntity partner = DriveLinkTracker.partner(master);
             if (partner == null || partner.isRemoved()) {
+                // 对端已注销时立刻拆掉，避免幽灵碰撞体卡到 BE tick 才 destroy
+                entry.getValue().remove();
+                iterator.remove();
                 continue;
             }
             entry.getValue().keep(master, partner);
@@ -137,9 +142,23 @@ public final class DriveShaftPhysics {
         private long lastNanos;
         /** Rebuild once when actuation arms so joint zero matches the live length. */
         private boolean rebaseOnEngage;
+        private int resizeHold;
 
         private Shaft(ServerLevel level) {
             this.level = level;
+        }
+
+        private boolean shouldResize(DrivePortBlockEntity a, DrivePortBlockEntity b) {
+            if (!needsResize(a, b)) {
+                resizeHold = 0;
+                return false;
+            }
+            resizeHold++;
+            if (resizeHold < RESIZE_DEBOUNCE) {
+                return false;
+            }
+            resizeHold = 0;
+            return true;
         }
 
         private void keep(DrivePortBlockEntity a, DrivePortBlockEntity b) {
@@ -156,7 +175,7 @@ public final class DriveShaftPhysics {
                 if (!springs) {
                     // Idle pneumatic must resize like andesite — otherwise the collider stays at
                     // the old length while the visible shaft stretches and "has no collision".
-                    if (needsResize(a, b)) {
+                    if (shouldResize(a, b)) {
                         remove();
                         try {
                             create(a, b);
@@ -167,7 +186,7 @@ public final class DriveShaftPhysics {
                     }
                     return;
                 }
-                if (pneumatic && (rebaseOnEngage || needsResize(a, b))) {
+                if (pneumatic && (rebaseOnEngage || shouldResize(a, b))) {
                     rebaseOnEngage = false;
                     remove();
                     try {
