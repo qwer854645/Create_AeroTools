@@ -528,11 +528,18 @@ public final class DriveLinkTracker {
 
     public static void clearLevel(Level level) {
         DriveShaftPhysics.clearLevel(level);
-        SERVER.values().removeIf(be -> be.getLevel() == level);
-        CLIENT.values().removeIf(be -> be.getLevel() == level);
+        SERVER.values().removeIf(be -> WorldSpace.parentLevel(be) == level || be.getLevel() == level);
+        CLIENT.values().removeIf(be -> WorldSpace.parentLevel(be) == level || be.getLevel() == level);
         ORPHANS.values().removeIf(orphan -> orphan.level == level);
-        INSANE_HOLD.clear();
-        CAPSULE_SUSPEND.clear();
+        // 只清本维度相关条目，避免卸载一界波及别的维度
+        INSANE_HOLD.keySet().removeIf(id -> {
+            DrivePortBlockEntity be = SERVER.get(id);
+            return be == null || WorldSpace.parentLevel(be) == level || be.getLevel() == level;
+        });
+        CAPSULE_SUSPEND.removeIf(id -> {
+            DrivePortBlockEntity be = SERVER.get(id);
+            return be == null || WorldSpace.parentLevel(be) == level || be.getLevel() == level;
+        });
     }
 
     public static void physicsTick() {
