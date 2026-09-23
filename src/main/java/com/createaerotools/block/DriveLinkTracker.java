@@ -3,7 +3,6 @@ package com.createaerotools.block;
 import com.createaerotools.config.CATConfig;
 import com.createaerotools.util.WorldSpace;
 import com.simibubi.create.AllItems;
-import dev.ryanhcode.sable.companion.SableCompanion;
 import dev.ryanhcode.sable.sublevel.SubLevel;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -36,26 +35,24 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 /**
- * 万向轴连接的全局跟踪器。
- * <p>
- * 职责概览：
- * <ul>
- *   <li>按 UUID 索引两端端口（服务端 / 客户端各一份）</li>
- *   <li>手持轴物品的两次点选连接（选择存在 ItemStack NBT，类似 Create 传送带）</li>
+ * 万向轴连接的全局跟踪器�? * <p>
+ * 职责概览�? * <ul>
+ *   <li>�?UUID 索引两端端口（服务端 / 客户端各一份）</li>
+ *   <li>手持轴物品的两次点选连接（选择存在 ItemStack NBT，类�?Create 传送带�?/li>
  *   <li>结构组装/收纳时的「孤儿」宽限与外部轴回收，避免吞轴</li>
- *   <li>每 tick 检测拉断，并驱动 {@link DriveShaftPhysics}</li>
+ *   <li>�?tick 检测拉断，并驱�?{@link DriveShaftPhysics}</li>
  * </ul>
  */
 public final class DriveLinkTracker {
-    /** 轴物品上记录的第一次选中端口（Create 传送带风格：跟物品走，不跟玩家走）。 */
+    /** 轴物品上记录的第一次选中端口（Create 传送带风格：跟物品走，不跟玩家走）�?*/
     private static final String FIRST_PORT = "FirstPort";
     private static final Map<UUID, DrivePortBlockEntity> SERVER = new ConcurrentHashMap<>();
     private static final Map<UUID, DrivePortBlockEntity> CLIENT = new ConcurrentHashMap<>();
-    /** 端口暂时消失（组装/拆解）时等待对端回来的宽限条目。 */
+    /** 端口暂时消失（组�?拆解）时等待对端回来的宽限条目�?*/
     private static final Map<UUID, Orphan> ORPHANS = new ConcurrentHashMap<>();
-    /** 长度瞬间爆炸式变长时的容错计数，避免误断。 */
+    /** 长度瞬间爆炸式变长时的容错计数，避免误断�?*/
     private static final Map<UUID, Integer> INSANE_HOLD = new ConcurrentHashMap<>();
-    /** 收纳移除中、两端都在组内的端口：跳过孤儿宽限（内部链接写进 NBT）。 */
+    /** 收纳移除中、两端都在组内的端口：跳过孤儿宽限（内部链接写进 NBT）�?*/
     private static final Set<UUID> CAPSULE_SUSPEND = ConcurrentHashMap.newKeySet();
     private static final int ORPHAN_GRACE = 60;
 
@@ -75,9 +72,7 @@ public final class DriveLinkTracker {
     }
 
     /**
-     * 端口方块随结构组装/拆解暂时消失。
-     * 保持链接，等待同一 portId 回来；收纳挂起时按内外轴分别处理。
-     */
+     * 端口方块随结构组�?拆解暂时消失�?     * 保持链接，等待同一 portId 回来；收纳挂起时按内外轴分别处理�?     */
     public static void onBlockGone(DrivePortBlockEntity be) {
         DrivePortBlockEntity current = SERVER.get(be.portId());
         if (current != null && current != be && !current.isRemoved()) {
@@ -86,8 +81,7 @@ public final class DriveLinkTracker {
         }
         if (CAPSULE_SUSPEND.contains(be.portId())) {
             ORPHANS.remove(be.portId());
-            // 组内两端都挂起：内部轴保留在收纳 NBT；对端在组外则必须立刻回收物品
-            UUID partnerId = be.partnerId();
+            // 组内两端都挂起：内部轴保留在收纳 NBT；对端在组外则必须立刻回收物�?            UUID partnerId = be.partnerId();
             boolean internal = partnerId != null && CAPSULE_SUSPEND.contains(partnerId);
             if (be.isLinked() && !internal) {
                 unlink(be, null, false);
@@ -102,9 +96,7 @@ public final class DriveLinkTracker {
     }
 
     /**
-     * 收纳开始移除结构时调用：仅把「两端都在本组内」的轴加入挂起集合。
-     * 外部轴不能挂起，否则会吞物品、不掉落。
-     */
+     * 收纳开始移除结构时调用：仅把「两端都在本组内」的轴加入挂起集合�?     * 外部轴不能挂起，否则会吞物品、不掉落�?     */
     public static void beginCapsuleRemoval(Collection<? extends SubLevel> group) {
         CAPSULE_SUSPEND.clear();
         if (group == null || group.isEmpty()) {
@@ -133,9 +125,7 @@ public final class DriveLinkTracker {
     }
 
     /**
-     * 枚举与 {@code structureId} 通过万向轴相连的其他结构 UUID。
-     * 客户端预览与服务端收纳均可使用。
-     */
+     * 枚举�?{@code structureId} 通过万向轴相连的其他结构 UUID�?     * 客户端预览与服务端收纳均可使用�?     */
     public static void visitLinkedStructures(Level level, UUID structureId, Consumer<UUID> consumer) {
         if (level == null || structureId == null || consumer == null) {
             return;
@@ -164,8 +154,7 @@ public final class DriveLinkTracker {
     }
 
     /**
-     * 断开「一端在本组、一端在组外/世界」的轴，并把物品还给玩家。
-     * @return 回收的轴数量
+     * 断开「一端在本组、一端在组外/世界」的轴，并把物品还给玩家�?     * @return 回收的轴数量
      */
     public static int unlinkExternal(Collection<? extends SubLevel> group, @Nullable Player player) {
         if (group == null || group.isEmpty()) {
@@ -197,42 +186,13 @@ public final class DriveLinkTracker {
     }
 
     private static boolean onGroup(DrivePortBlockEntity be, Collection<? extends SubLevel> group) {
-        if (WorldSpace.isOn(be, group)) {
-            return true;
-        }
-        // getContaining 解析到了别处（世界/其他结构）→ 不在本组
-        if (SableCompanion.INSTANCE.getContaining(be) != null) {
-            return false;
-        }
-        // getContaining 失败：退回 plot 局部坐标，再退回世界 AABB
-        BlockPos pos = be.getBlockPos();
-        Vec3 at = WorldSpace.worldLinkAnchor(be, be.facing());
-        for (SubLevel subLevel : group) {
-            if (subLevel == null || subLevel.isRemoved()) {
-                continue;
-            }
-            var plot = subLevel.getPlot();
-            if (plot != null) {
-                var plotBox = plot.getBoundingBox();
-                if (plotBox != null
-                        && pos.getX() >= plotBox.minX() && pos.getX() <= plotBox.maxX()
-                        && pos.getY() >= plotBox.minY() && pos.getY() <= plotBox.maxY()
-                        && pos.getZ() >= plotBox.minZ() && pos.getZ() <= plotBox.maxZ()) {
-                    return true;
-                }
-            }
-            var box = subLevel.boundingBox().toMojang().inflate(0.25D);
-            if (box.contains(at)) {
-                return true;
-            }
-        }
-        return false;
+        // 不确定时宁可不算组内：AABB 兜底曾把外部轴误判为组内，导�?CAPSULE_SUSPEND 吞轴
+        return WorldSpace.isOn(be, group);
     }
 
     /**
      * 玩家/爆炸永久破坏端口：立刻掉轴，不等 {@link #ORPHAN_GRACE}
-     * （宽限只给组装/拆解的短暂重建用）。
-     */
+     * （宽限只给组�?拆解的短暂重建用）�?     */
     public static void breakPermanently(DrivePortBlockEntity be) {
         if (be.isLinked()) {
             unlink(be, null, false);
@@ -288,7 +248,7 @@ public final class DriveLinkTracker {
         return level != null && level.isClientSide ? CLIENT : SERVER;
     }
 
-    /** 手持万向轴右键端口：选中 / 连接 / 潜行收回。 */
+    /** 手持万向轴右键端口：选中 / 连接 / 潜行收回�?*/
     public static ItemInteractionResult handleShaft(DrivePortBlockEntity be, Player player, ItemStack stack) {
         Level level = be.getLevel();
         if (level == null) {
@@ -349,7 +309,7 @@ public final class DriveLinkTracker {
         return ItemInteractionResult.SUCCESS;
     }
 
-    /** 主端每 tick：同步物理、检测拉断；对端缺失时进入 WAITING。 */
+    /** 主端�?tick：同步物理、检测拉断；对端缺失时进�?WAITING�?*/
     public static void tick(DrivePortBlockEntity be) {
         if (!be.isLinked()) {
             return;
@@ -390,18 +350,14 @@ public final class DriveLinkTracker {
         DriveShaftPhysics.sync(be, partner);
         be.setStatus(DrivePortBlockEntity.LinkStatus.CONNECTED);
         partner.setStatus(DrivePortBlockEntity.LinkStatus.CONNECTED);
-        // Create 动能网络只在同一 Level 内传播；跨结构时用转速同步兜底
-        if (be.getLevel() != partner.getLevel()) {
+        // Create 动能网络只在同一 Level 内传播；跨结构时用转速同步兜�?        if (be.getLevel() != partner.getLevel()) {
             be.syncCrossLevelSpeed(partner);
         }
     }
 
     /**
-     * 潜行 + Create 扳手对准已连接的轴体（不一定对准端口方块）。
-     * 与潜行扳手端口相同：断开并把轴物品还给玩家。
-     *
-     * @return 是否瞄准了轴（客户端也返回 true 以取消交互）；实际 unlink 仅在服务端执行
-     */
+     * 潜行 + Create 扳手对准已连接的轴体（不一定对准端口方块）�?     * 与潜行扳手端口相同：断开并把轴物品还给玩家�?     *
+     * @return 是否瞄准了轴（客户端也返�?true 以取消交互）；实�?unlink 仅在服务端执�?     */
     public static boolean tryWrenchShaft(Player player, InteractionHand hand) {
         if (!player.isShiftKeyDown() || !AllItems.WRENCH.isIn(player.getItemInHand(hand))) {
             return false;
@@ -419,9 +375,7 @@ public final class DriveLinkTracker {
     }
 
     /**
-     * 视线射线是否在 {@code maxDistance} 内先碰到已连接的轴
-     * （用于扳手：轴在方块前面时应优先收回轴）。
-     */
+     * 视线射线是否�?{@code maxDistance} 内先碰到已连接的�?     * （用于扳手：轴在方块前面时应优先收回轴）�?     */
     public static boolean shaftCloserThan(Player player, double maxDistance) {
         if (!player.isShiftKeyDown()) {
             return false;
@@ -531,8 +485,7 @@ public final class DriveLinkTracker {
         SERVER.values().removeIf(be -> WorldSpace.parentLevel(be) == level || be.getLevel() == level);
         CLIENT.values().removeIf(be -> WorldSpace.parentLevel(be) == level || be.getLevel() == level);
         ORPHANS.values().removeIf(orphan -> orphan.level == level);
-        // 只清本维度相关条目，避免卸载一界波及别的维度
-        INSANE_HOLD.keySet().removeIf(id -> {
+        // 只清本维度相关条目，避免卸载一界波及别的维�?        INSANE_HOLD.keySet().removeIf(id -> {
             DrivePortBlockEntity be = SERVER.get(id);
             return be == null || WorldSpace.parentLevel(be) == level || be.getLevel() == level;
         });
@@ -576,7 +529,7 @@ public final class DriveLinkTracker {
 
     /**
      * Reject only when a port faces so far away from the shaft that the link would go
-     * through the block — mild misalignment is fine (the joint is built along the real shaft).
+     * through the block �?mild misalignment is fine (the joint is built along the real shaft).
      */
     private static boolean facingAllowsLink(DrivePortBlockEntity a, DrivePortBlockEntity b) {
         Vec3 from = WorldSpace.worldLinkAnchor(a, a.facing());
@@ -621,7 +574,7 @@ public final class DriveLinkTracker {
                                   boolean giveToPlayer) {
         ItemStack shaft = a.shaftKind().asStack();
         if (giveToPlayer && player != null) {
-            // Always try inventory first — including creative. Skipping addItem on instabuild
+            // Always try inventory first �?including creative. Skipping addItem on instabuild
             // made capsule recovery look like the shaft was swallowed.
             if (player.addItem(shaft.copy())) {
                 return;
