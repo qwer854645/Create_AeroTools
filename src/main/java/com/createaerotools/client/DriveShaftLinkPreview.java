@@ -116,7 +116,7 @@ public final class DriveShaftLinkPreview {
                 .disableDiffuse()
                 .renderInto(poseStack, consumer);
         poseStack.popPose();
-        mc.renderBuffers().bufferSource().endBatch(RenderType.translucent());
+        // 交给帧末统一 flush，避免每帧强制 endBatch 打断半透明合批
     }
 
     private static ItemStack heldShaft(LocalPlayer player) {
