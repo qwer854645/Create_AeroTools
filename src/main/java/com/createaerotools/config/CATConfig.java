@@ -46,6 +46,8 @@ public final class CATConfig {
         public final ModConfigSpec.DoubleValue toolGunLinearDamping;
         public final ModConfigSpec.DoubleValue toolGunAngularStiffness;
         public final ModConfigSpec.DoubleValue toolGunAngularDamping;
+        public final ModConfigSpec.DoubleValue toolGunMaxLinearForce;
+        public final ModConfigSpec.DoubleValue toolGunMaxAngularForce;
 
         private Server(ModConfigSpec.Builder builder) {
             builder.comment("Advanced structure capsule station.").push("capsule");
@@ -133,6 +135,12 @@ public final class CATConfig {
             toolGunAngularDamping = builder
                     .comment("Angular damping of the grab joint.")
                     .defineInRange("toolGunAngularDamping", 850.0D, 0.0D, 1_000_000.0D);
+            toolGunMaxLinearForce = builder
+                    .comment("Maximum linear motor force while grabbing. Cap prevents launching crafts. 0 uncapped (unsafe).")
+                    .defineInRange("toolGunMaxLinearForce", 4000.0D, 0.0D, 1_000_000.0D);
+            toolGunMaxAngularForce = builder
+                    .comment("Maximum angular motor force while grabbing. Cap prevents launching crafts. 0 uncapped (unsafe).")
+                    .defineInRange("toolGunMaxAngularForce", 8000.0D, 0.0D, 1_000_000.0D);
             builder.pop();
         }
     }

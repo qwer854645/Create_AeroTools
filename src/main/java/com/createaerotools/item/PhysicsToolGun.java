@@ -364,8 +364,13 @@ public final class PhysicsToolGun extends SavedData implements SubLevelObserver 
             float angularDamping = CATConfig.SERVER.toolGunAngularDamping.get().floatValue();
             float linearStiffness = CATConfig.SERVER.toolGunLinearStiffness.get().floatValue();
             float linearDamping = CATConfig.SERVER.toolGunLinearDamping.get().floatValue();
+            // hasForceLimit=true：与 DriveShaftPhysics 相同，避免无限力弹飞结构
+            double maxAngular = CATConfig.SERVER.toolGunMaxAngularForce.get();
+            double maxLinear = CATConfig.SERVER.toolGunMaxLinearForce.get();
+            boolean limitAngular = maxAngular > 0.0D;
+            boolean limitLinear = maxLinear > 0.0D;
             for (ConstraintJointAxis axis : ConstraintJointAxis.ANGULAR) {
-                constraint.setMotor(axis, 0.0D, angularStiffness, angularDamping, false, 0.0D);
+                constraint.setMotor(axis, 0.0D, angularStiffness, angularDamping, limitAngular, maxAngular);
             }
             Player player = subLevel.getLevel().getPlayerByUUID(playerId);
             if (player == null) {
@@ -377,9 +382,9 @@ public final class PhysicsToolGun extends SavedData implements SubLevelObserver 
             double eyeZ = Mth.lerp(pt, player.zOld, player.getZ());
             localGoal.set(relativeGoal).add(eyeX, eyeY, eyeZ);
             orientation.transformInverse(localGoal);
-            constraint.setMotor(ConstraintJointAxis.LINEAR_X, localGoal.x(), linearStiffness, linearDamping, false, 0.0D);
-            constraint.setMotor(ConstraintJointAxis.LINEAR_Y, localGoal.y(), linearStiffness, linearDamping, false, 0.0D);
-            constraint.setMotor(ConstraintJointAxis.LINEAR_Z, localGoal.z(), linearStiffness, linearDamping, false, 0.0D);
+            constraint.setMotor(ConstraintJointAxis.LINEAR_X, localGoal.x(), linearStiffness, linearDamping, limitLinear, maxLinear);
+            constraint.setMotor(ConstraintJointAxis.LINEAR_Y, localGoal.y(), linearStiffness, linearDamping, limitLinear, maxLinear);
+            constraint.setMotor(ConstraintJointAxis.LINEAR_Z, localGoal.z(), linearStiffness, linearDamping, limitLinear, maxLinear);
         }
 
         private void onRemoved() {
