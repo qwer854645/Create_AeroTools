@@ -318,7 +318,7 @@ public final class PhysicsToolGunClient {
     }
 
     private static void sparkle(Level level, Vec3 at) {
-        if (level.getRandom().nextInt(2) != 0) {
+        if (level.getRandom().nextInt(5) != 0) {
             return;
         }
         RandomSource random = level.getRandom();
