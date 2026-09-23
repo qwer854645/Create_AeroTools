@@ -29,6 +29,7 @@ import java.util.UUID;
 /** 手持收纳器时用 Outliner 高亮将被收纳的结构（含高级收纳器连通组）。 */
 public final class CapsulePreviewRenderer {
     private static final int COLOR = 0x7AD4FF;
+    private static int tickCounter;
 
     private CapsulePreviewRenderer() {
     }
@@ -38,6 +39,10 @@ public final class CapsulePreviewRenderer {
     }
 
     private static void onClientTick(ClientTickEvent.Post event) {
+        // 高级收纳 BFS 较贵：隔一 tick 再扫
+        if ((++tickCounter & 1) != 0) {
+            return;
+        }
         Minecraft mc = Minecraft.getInstance();
         LocalPlayer player = mc.player;
         Level level = mc.level;
