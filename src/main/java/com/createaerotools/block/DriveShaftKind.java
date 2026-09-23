@@ -38,6 +38,19 @@ public enum DriveShaftKind {
         };
     }
 
+    /** 气动端口上该材质的行程 / 链接上限。 */
+    public double pneumaticMaxLength() {
+        return switch (this) {
+            case BRASS -> CATConfig.SERVER.pneumaticBrassMaxLength.get();
+            case ANDESITE -> CATConfig.SERVER.pneumaticAndesiteMaxLength.get();
+        };
+    }
+
+    /** 按端口类型选择链接上限：气动用气动配置，传动用传动配置。 */
+    public double maxLinkLengthFor(DrivePortBlockEntity port) {
+        return port instanceof PneumaticPortBlockEntity ? pneumaticMaxLength() : maxLinkLength();
+    }
+
     public ItemStack asStack() {
         return (this == BRASS ? CATItems.DRIVE_SHAFT : CATItems.ANDESITE_DRIVE_SHAFT).asStack();
     }

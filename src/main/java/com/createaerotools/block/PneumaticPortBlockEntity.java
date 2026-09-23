@@ -76,7 +76,7 @@ public class PneumaticPortBlockEntity extends DrivePortBlockEntity {
      */
     @Override
     public double snapLength() {
-        double max = shaftKind().maxLinkLength();
+        double max = maxLengthForKind();
         if (max <= 0.0D) {
             return Double.POSITIVE_INFINITY;
         }
@@ -323,7 +323,8 @@ public class PneumaticPortBlockEntity extends DrivePortBlockEntity {
 
     private void setTargetLength(double length, boolean syncPartner) {
         double max = maxLengthForKind();
-        double clamped = Mth.clamp(length, MIN_LENGTH, max > MIN_LENGTH ? max : MIN_LENGTH);
+        double upper = Double.isFinite(max) && max > MIN_LENGTH ? max : 1024.0D;
+        double clamped = Mth.clamp(length, MIN_LENGTH, upper);
         int scrollValue = tenths(clamped);
         if (Math.abs(targetLength - clamped) < 0.001D
                 && (!brassScaleMode && sideScroll != null && sideScroll.getValue() == scrollValue)) {
@@ -344,22 +345,17 @@ public class PneumaticPortBlockEntity extends DrivePortBlockEntity {
     }
 
     private double maxLengthForKind() {
-        double max = shaftKind().maxLinkLength();
+        double max = shaftKind().pneumaticMaxLength();
         if (max <= 0.0D) {
-            max = CATConfig.SERVER.driveMaxDistance.get();
-        }
-        if (max <= 0.0D) {
-            max = 8.0D;
+            return Double.POSITIVE_INFINITY;
         }
         return max;
     }
 
     private double maxScrollLength() {
-        double max = CATConfig.SERVER.driveAndesiteMaxLength.get();
-        if (max <= 0.0D) {
-            max = 8.0D;
-        }
-        return Math.max(MIN_LENGTH, max);
+        return Math.max(MIN_LENGTH, maxLengthForKind() == Double.POSITIVE_INFINITY
+                ? 1024.0D
+                : maxLengthForKind());
     }
 
     private static int tenths(double length) {

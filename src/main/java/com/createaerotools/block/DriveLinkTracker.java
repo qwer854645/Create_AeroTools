@@ -539,8 +539,9 @@ public final class DriveLinkTracker {
         if (a.isLinked() || b.isLinked()) {
             return "createaerotools.message.drive_already_linked";
         }
-        double max = kind.maxLinkLength();
-        if (max > 0.0D && length > max) {
+        // 气动 / 传动端口各自用独立的轴长上限
+        double max = kind.maxLinkLengthFor(a);
+        if (max > 0.0D && Double.isFinite(max) && length > max) {
             return "createaerotools.message.drive_too_far";
         }
         if (length < 0.35D) {

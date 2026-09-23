@@ -80,7 +80,7 @@ public final class DriveShaftLinkPreview {
         } else {
             to = aimPoint(player, first, from, kind);
             double length = from.distanceTo(to);
-            tint = length < 0.35D || !lengthWithinMax(length, kind) ? TINT_BAD : TINT_AIM;
+            tint = length < 0.35D || !lengthWithinMax(length, first, kind) ? TINT_BAD : TINT_AIM;
         }
 
         Vec3 delta = to.subtract(from);
@@ -150,8 +150,8 @@ public final class DriveShaftLinkPreview {
     }
 
     private static Vec3 aimPoint(LocalPlayer player, DrivePortBlockEntity first, Vec3 from, DriveShaftKind kind) {
-        double max = kind.maxLinkLength();
-        if (max <= 0.0D) {
+        double max = kind.maxLinkLengthFor(first);
+        if (max <= 0.0D || !Double.isFinite(max)) {
             max = 8.0D;
         }
         Vec3 lookHit = player.pick(Math.min(player.blockInteractionRange(), max + 1.0D), 0.0F, false).getLocation();
@@ -166,8 +166,8 @@ public final class DriveShaftLinkPreview {
         return from.add(blended.scale(reach));
     }
 
-    private static boolean lengthWithinMax(double length, DriveShaftKind kind) {
-        double max = kind.maxLinkLength();
-        return max <= 0.0D || length <= max;
+    private static boolean lengthWithinMax(double length, DrivePortBlockEntity first, DriveShaftKind kind) {
+        double max = kind.maxLinkLengthFor(first);
+        return max <= 0.0D || !Double.isFinite(max) || length <= max;
     }
 }

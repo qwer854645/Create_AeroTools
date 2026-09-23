@@ -36,6 +36,8 @@ public final class CATConfig {
         public final ModConfigSpec.DoubleValue driveMaxForce;
         public final ModConfigSpec.DoubleValue driveShaftRadius;
         public final ModConfigSpec.DoubleValue driveMaxStress;
+        public final ModConfigSpec.DoubleValue pneumaticBrassMaxLength;
+        public final ModConfigSpec.DoubleValue pneumaticAndesiteMaxLength;
         public final ModConfigSpec.DoubleValue pneumaticActuationSpeed;
         public final ModConfigSpec.DoubleValue pneumaticBreakPercent;
         public final ModConfigSpec.EnumValue<PneumaticRedstoneCombine> pneumaticRedstoneCombine;
@@ -74,18 +76,18 @@ public final class CATConfig {
                     .defineInRange("capsuleStationRange", 32.0D, 0.0D, 1024.0D);
             builder.pop();
 
-            builder.comment("Universal drive ports.").push("drive");
+            builder.comment("Universal drive ports (non-pneumatic).").push("drive");
             driveMaxDistance = builder
-                    .comment("Maximum brass shaft length when linking, and hard length cap while a brass shaft is linked. 0 means unlimited. Andesite shafts use andesiteMaxLength instead.")
+                    .comment("Drive port + brass shaft: maximum length when linking, and hard length cap while linked. 0 means unlimited. Pneumatic brass uses pneumaticBrassMaxLength.")
                     .defineInRange("maxDistance", 8.0D, 0.0D, 1024.0D);
             driveMaxAngle = builder
                     .comment("Maximum swing of the shaft around each port, in degrees.")
                     .defineInRange("maxAngle", 45.0D, 5.0D, 80.0D);
             driveBrassBreakPercent = builder
-                    .comment("Brass shaft snaps when its length exceeds this percent of the linked rest length. 150 means 1.5× the linked length.")
+                    .comment("Drive port + brass shaft: snaps when length exceeds this percent of the linked rest length. 150 means 1.5× the linked length.")
                     .defineInRange("brassBreakPercent", 150.0D, 100.0D, 1000.0D);
             driveAndesiteMaxLength = builder
-                    .comment("Maximum andesite shaft length in blocks. Used when linking and as the only snap limit while linked. 0 means unlimited.")
+                    .comment("Drive port + andesite shaft: maximum length when linking and while linked (only snap limit). 0 means unlimited. Pneumatic andesite uses pneumaticAndesiteMaxLength.")
                     .defineInRange("andesiteMaxLength", 8.0D, 0.0D, 1024.0D);
             driveStiffness = builder
                     .comment("Spring stiffness of brass shafts pulling back to the linked rest length.")
@@ -102,11 +104,17 @@ public final class CATConfig {
             driveMaxStress = builder
                     .comment("Maximum SU transferred through one pair. 0 means unlimited.")
                     .defineInRange("maxStressUnits", 0.0D, 0.0D, 1_000_000.0D);
+            pneumaticBrassMaxLength = builder
+                    .comment("Pneumatic port + brass shaft: max redstone travel length and link length. 0 means unlimited.")
+                    .defineInRange("pneumaticBrassMaxLength", 8.0D, 0.0D, 1024.0D);
+            pneumaticAndesiteMaxLength = builder
+                    .comment("Pneumatic port + andesite shaft: max scroll travel length and link length. 0 means unlimited.")
+                    .defineInRange("pneumaticAndesiteMaxLength", 8.0D, 0.0D, 1024.0D);
             pneumaticActuationSpeed = builder
                     .comment("How fast a pneumatic port ramps its spring target toward the set length, in blocks per second. Lower is more stable.")
                     .defineInRange("pneumaticActuationSpeed", 2.0D, 0.1D, 32.0D);
             pneumaticBreakPercent = builder
-                    .comment("Pneumatic shafts snap when longer than this percent of their max travel length (brass maxDistance / andesite maxLength). 200 means 2× max travel, so redstone/scroll actuation cannot self-break.")
+                    .comment("Pneumatic shafts snap when longer than this percent of their pneumatic max travel (pneumaticBrassMaxLength / pneumaticAndesiteMaxLength). 200 means 2× max travel, so redstone/scroll actuation cannot self-break.")
                     .defineInRange("pneumaticBreakPercent", 200.0D, 100.0D, 1000.0D);
             pneumaticRedstoneCombine = builder
                     .comment("When both ends of a brass pneumatic shaft have redstone: HIGHEST uses the stronger signal, LOWEST uses the weaker.")
