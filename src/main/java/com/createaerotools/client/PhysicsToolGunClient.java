@@ -65,6 +65,10 @@ public final class PhysicsToolGunClient {
     private static float lastYRot;
     private static float lastXRot;
     private static int lockCooldown;
+    private static int dragSendCooldown;
+    private static final Vector3d lastSentGoal = new Vector3d();
+    private static final Quaterniond lastSentOrientation = new Quaterniond();
+    private static boolean hasSentDrag;
 
     private PhysicsToolGunClient() {
     }
@@ -340,9 +344,29 @@ public final class PhysicsToolGunClient {
             return;
         }
         Vec3 goal = player.getLookAngle().scale(session.distance);
+        Vector3dc goalJoml = JOMLConversion.toJOML(goal);
+        // 限流：位置/朝向几乎没变时最多每 2 tick 发一次
+        boolean moved = !hasSentDrag
+                || lastSentGoal.distanceSquared(goalJoml) > 1.0E-4D
+                || Math.abs(lastSentOrientation.dot(session.orientation)) < 0.9999D
+                || Math.abs(lastSentGoal.lengthSquared() - goalJoml.lengthSquared()) > 1.0E-4D;
+        if (dragSendCooldown > 0 && !moved) {
+            dragSendCooldown--;
+            return;
+        }
+        if (dragSendCooldown > 0 && moved) {
+            dragSendCooldown--;
+            if (dragSendCooldown > 0 && lastSentGoal.distanceSquared(goalJoml) < 0.0025D) {
+                return;
+            }
+        }
+        dragSendCooldown = 2;
+        hasSentDrag = true;
+        lastSentGoal.set(goalJoml);
+        lastSentOrientation.set(session.orientation);
         PacketDistributor.sendToServer(new ToolGunDragPayload(
                 session.subLevel.getUniqueId(),
-                JOMLConversion.toJOML(goal),
+                new Vector3d(goalJoml),
                 new Vector3d(session.local),
                 new Quaterniond(session.orientation)
         ));
@@ -353,6 +377,8 @@ public final class PhysicsToolGunClient {
             PacketDistributor.sendToServer(new ToolGunActionPayload(ToolGunActionPayload.Action.STOP_DRAG, session.subLevel.getUniqueId()));
         }
         session = null;
+        hasSentDrag = false;
+        dragSendCooldown = 0;
         if (beam != null) {
             beam.release();
         }
