@@ -275,7 +275,12 @@ public class DrivePortBlockEntity extends KineticBlockEntity {
 
     @Override
     public void onChunkUnloaded() {
-        DriveLinkTracker.unregister(this);
+        // 与 remove 一样走 onBlockGone：进入孤儿宽限，而不是直接注销导致对端长期 WAITING
+        if (level != null && !level.isClientSide) {
+            DriveLinkTracker.onBlockGone(this);
+        } else {
+            DriveLinkTracker.unregister(this);
+        }
         super.onChunkUnloaded();
     }
 
