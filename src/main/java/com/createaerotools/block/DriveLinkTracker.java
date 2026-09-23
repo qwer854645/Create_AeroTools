@@ -425,6 +425,13 @@ public final class DriveLinkTracker {
             }
             Vec3 from = WorldSpace.worldLinkAnchor(be, be.facing());
             Vec3 to = WorldSpace.worldLinkAnchor(partner, partner.facing());
+            // 粗筛：中点远超触及距离则跳过精确射线检测
+            double pad = from.distanceTo(to) * 0.5D + 1.0D;
+            double midDistSq = origin.distanceToSqr(from.add(to).scale(0.5D));
+            double reachPad = reach + pad;
+            if (midDistSq > reachPad * reachPad) {
+                continue;
+            }
             double dist = rayHitsSegment(origin, look, reach, from, to, hitRadiusSq);
             if (dist >= 0.0D && dist < bestDist) {
                 bestDist = dist;
