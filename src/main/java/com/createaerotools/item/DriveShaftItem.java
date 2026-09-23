@@ -38,11 +38,7 @@ public class DriveShaftItem extends Item {
         }
         ItemStack stack = context.getItemInHand();
         if (context.getLevel().isClientSide) {
-            // Optimistic first-click so the link ghost appears without waiting for a sync tick.
-            if (!player.isShiftKeyDown() && !be.isLinked()
-                    && DriveLinkTracker.selectedPort(stack, context.getLevel()) == null) {
-                DriveLinkTracker.storeSelection(stack, be);
-            }
+            // 不在客户端写 FirstPort NBT，避免与服务端选中状态短暂不一致
             return InteractionResult.SUCCESS;
         }
         return be.handleShaft(player, stack).result();
