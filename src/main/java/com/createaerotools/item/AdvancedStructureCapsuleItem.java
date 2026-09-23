@@ -386,7 +386,7 @@ public class AdvancedStructureCapsuleItem extends Item {
                     }
                 }
                 if (!foundAnchor && payload.contains("pose")
-                        && (anchor == null || payload.getUUID("uuid").equals(anchor))) {
+                        && (anchor == null || (payload.hasUUID("uuid") && payload.getUUID("uuid").equals(anchor)))) {
                     com = CapsulePayloads.posePosition(payload);
                     foundAnchor = true;
                 }
