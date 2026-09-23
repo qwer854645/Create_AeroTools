@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "B": {
+      "item": "create:brass_casing"
+    },
+    "E": {
+      "item": "minecraft:ender_pearl"
+    },
+    "P": {
+      "item": "create:precision_mechanism"
+    }
+  },
+  "pattern": [
+    "P",
+    "B",
+    "E"
+  ],
+  "result": {
+    "count": 1,
+    "id": "createaerotools:structure_capsule"
+  }
+}

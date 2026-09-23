@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "facing=up": { "model": "createaerotools:block/drive_port" },
+    "facing=down": { "model": "createaerotools:block/drive_port", "x": 180 },
+    "facing=north": { "model": "createaerotools:block/drive_port", "x": 90 },
+    "facing=south": { "model": "createaerotools:block/drive_port", "x": 90, "y": 180 },
+    "facing=west": { "model": "createaerotools:block/drive_port", "x": 90, "y": 270 },
+    "facing=east": { "model": "createaerotools:block/drive_port", "x": 90, "y": 90 }
+  }
+}

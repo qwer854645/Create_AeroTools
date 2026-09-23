@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "facing=north": { "model": "createaerotools:block/capsule_station" },
+    "facing=south": { "model": "createaerotools:block/capsule_station", "y": 180 },
+    "facing=west": { "model": "createaerotools:block/capsule_station", "y": 270 },
+    "facing=east": { "model": "createaerotools:block/capsule_station", "y": 90 },
+    "facing=up": { "model": "createaerotools:block/capsule_station", "x": -90 },
+    "facing=down": { "model": "createaerotools:block/capsule_station", "x": 90 }
+  }
+}

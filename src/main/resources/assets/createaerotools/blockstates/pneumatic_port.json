@@ -1,0 +1,30 @@
+{
+  "variants": {
+    "facing=down": {
+      "model": "createaerotools:block/pneumatic_port",
+      "x": 180
+    },
+    "facing=east": {
+      "model": "createaerotools:block/pneumatic_port",
+      "x": 90,
+      "y": 90
+    },
+    "facing=north": {
+      "model": "createaerotools:block/pneumatic_port",
+      "x": 90
+    },
+    "facing=south": {
+      "model": "createaerotools:block/pneumatic_port",
+      "x": 90,
+      "y": 180
+    },
+    "facing=up": {
+      "model": "createaerotools:block/pneumatic_port"
+    },
+    "facing=west": {
+      "model": "createaerotools:block/pneumatic_port",
+      "x": 90,
+      "y": 270
+    }
+  }
+}

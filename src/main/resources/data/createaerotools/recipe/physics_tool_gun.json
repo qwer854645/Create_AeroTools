@@ -1,0 +1,27 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "B": {
+      "item": "create:brass_ingot"
+    },
+    "P": {
+      "item": "create:precision_mechanism"
+    },
+    "T": {
+      "item": "create:electron_tube"
+    },
+    "S": {
+      "item": "create:shaft"
+    }
+  },
+  "pattern": [
+    " T",
+    "PB",
+    "S "
+  ],
+  "result": {
+    "count": 1,
+    "id": "createaerotools:physics_tool_gun"
+  }
+}

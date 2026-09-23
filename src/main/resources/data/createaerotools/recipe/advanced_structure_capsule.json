@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "C": {
+      "item": "createaerotools:structure_capsule"
+    },
+    "E": {
+      "item": "minecraft:ender_eye"
+    },
+    "P": {
+      "item": "create:precision_mechanism"
+    }
+  },
+  "pattern": [
+    "E",
+    "C",
+    "P"
+  ],
+  "result": {
+    "count": 1,
+    "id": "createaerotools:advanced_structure_capsule"
+  }
+}

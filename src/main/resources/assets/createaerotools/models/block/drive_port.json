@@ -1,0 +1,52 @@
+{
+  "parent": "minecraft:block/block",
+  "render_type": "minecraft:cutout",
+  "textures": {
+    "particle": "create:block/andesite_casing",
+    "kinetic": "create:block/andesite_casing",
+    "link": "create:block/brass_casing",
+    "axis": "create:block/axis",
+    "axis_top": "create:block/axis_top"
+  },
+  "elements": [
+    {
+      "name": "KineticFlange",
+      "from": [3, 0, 3],
+      "to": [13, 2, 13],
+      "faces": {
+        "north": { "uv": [3, 14, 13, 16], "texture": "#kinetic" },
+        "east": { "uv": [3, 14, 13, 16], "texture": "#kinetic" },
+        "south": { "uv": [3, 14, 13, 16], "texture": "#kinetic" },
+        "west": { "uv": [3, 14, 13, 16], "texture": "#kinetic" },
+        "up": { "uv": [3, 3, 13, 13], "texture": "#kinetic" },
+        "down": { "uv": [3, 3, 13, 13], "texture": "#kinetic" }
+      }
+    },
+    {
+      "name": "Shaft",
+      "from": [5.5, 2, 5.5],
+      "to": [10.5, 7, 10.5],
+      "faces": {
+        "north": { "uv": [6, 0, 10, 5], "texture": "#axis" },
+        "east": { "uv": [6, 0, 10, 5], "texture": "#axis" },
+        "south": { "uv": [6, 0, 10, 5], "texture": "#axis" },
+        "west": { "uv": [6, 0, 10, 5], "texture": "#axis" },
+        "up": { "uv": [6, 6, 10, 10], "texture": "#axis_top" },
+        "down": { "uv": [6, 6, 10, 10], "texture": "#axis_top" }
+      }
+    },
+    {
+      "name": "LinkFlange",
+      "from": [3, 7, 3],
+      "to": [13, 10, 13],
+      "faces": {
+        "north": { "uv": [3, 6, 13, 9], "texture": "#link" },
+        "east": { "uv": [3, 6, 13, 9], "texture": "#link" },
+        "south": { "uv": [3, 6, 13, 9], "texture": "#link" },
+        "west": { "uv": [3, 6, 13, 9], "texture": "#link" },
+        "up": { "uv": [3, 3, 13, 13], "texture": "#link" },
+        "down": { "uv": [3, 3, 13, 13], "texture": "#link" }
+      }
+    }
+  ]
+}

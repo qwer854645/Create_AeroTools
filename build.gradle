@@ -1,0 +1,175 @@
+plugins {
+    id 'java-library'
+    id 'eclipse'
+    id 'net.neoforged.moddev' version "${moddevgradle_version}"
+}
+
+group = mod_group_id
+version = mod_version
+
+base {
+    archivesName = mod_id
+}
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+
+def patchDevClientConfig = {
+    def configDir = file('run/config')
+    configDir.mkdirs()
+
+    def flywheel = file('run/config/flywheel-client.toml')
+    if (flywheel.exists()) {
+        def text = flywheel.getText('UTF-8')
+        text = text.replace('backend = "DEFAULT"', 'backend = "flywheel:instancing"')
+        text = text.replace('backend = "OFF"', 'backend = "flywheel:instancing"')
+        text = text.replace('backend = "flywheel:indirect"', 'backend = "flywheel:instancing"')
+        text = text.replace('workerThreads = -1', 'workerThreads = 0')
+        text = text.replace('workerThreads = 1', 'workerThreads = 0')
+        text = text.replace('workerThreads = 2', 'workerThreads = 0')
+        flywheel.setText(text, 'UTF-8')
+    }
+}
+
+tasks.register('prepareDevClientConfig') {
+    group = 'neoforge'
+    description = 'Apply stable Flywheel settings for Windows dev client'
+    doLast(patchDevClientConfig)
+}
+
+neoForge {
+    version = neo_version
+
+    parchment {
+        minecraftVersion = parchment_minecraft_version
+        mappingsVersion = parchment_mappings_version
+    }
+
+    runs {
+        configureEach {
+            systemProperty 'forge.logging.console.level', 'info'
+        }
+
+        client {
+            client()
+            gameDirectory = file('run')
+            taskBefore tasks.named('prepareDevClientConfig')
+        }
+
+        server {
+            server()
+            gameDirectory = file('run/server')
+        }
+
+        data {
+            data()
+            gameDirectory = file('run')
+            programArguments.addAll '--mod', mod_id, '--all',
+                    '--output', file('src/generated/resources/').absolutePath,
+                    '--existing', file('src/main/resources/').absolutePath
+        }
+    }
+
+    mods {
+        createaerotools {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://maven.createmod.net' }
+    maven { url = 'https://maven.ithundxr.dev/snapshots' }
+    maven {
+        name = 'RyanHCode'
+        url = 'https://maven.ryanhcode.dev/releases'
+        content {
+            includeGroup 'dev.ryanhcode.sable'
+            includeGroup 'dev.ryanhcode.sable-companion'
+            includeGroup 'dev.simulated_team.simulated'
+            includeGroup 'dev.eriksonn.aeronautics'
+        }
+    }
+}
+
+configurations {
+    devRuntimeMods
+}
+
+dependencies {
+    implementation("com.tterrag.registrate:Registrate:${registrate_version}")
+
+    compileOnly("com.simibubi.create:create-${minecraft_version}:${create_version}") {
+        artifact { classifier = 'slim' }
+        transitive = false
+    }
+    compileOnly("net.createmod.ponder:ponder-neoforge:${ponder_version}+mc${minecraft_version}")
+    compileOnly("dev.engine-room.flywheel:flywheel-neoforge-api-${minecraft_version}:${flywheel_version}")
+
+    compileOnly("dev.ryanhcode.sable-companion:sable-companion-common-${minecraft_version}:${sable_companion_version}")
+    jarJar(implementation("dev.ryanhcode.sable-companion:sable-companion-common-${minecraft_version}:${sable_companion_version}"))
+
+    compileOnly("dev.ryanhcode.sable:sable-neoforge-${minecraft_version}:${sable_version}") {
+        transitive = false
+    }
+
+    devRuntimeMods("com.simibubi.create:create-${minecraft_version}:${create_version}") {
+        transitive = false
+    }
+    devRuntimeMods("net.createmod.ponder:ponder-neoforge:${ponder_version}+mc${minecraft_version}")
+    devRuntimeMods("dev.engine-room.flywheel:flywheel-neoforge-${minecraft_version}:${flywheel_version}")
+    devRuntimeMods("dev.ryanhcode.sable:sable-neoforge-${minecraft_version}:${sable_version}") {
+        transitive = false
+    }
+}
+
+tasks.register('copyDevMods', Copy) {
+    into file('run/mods')
+    from('libs') {
+        include '*.jar'
+    }
+    from configurations.devRuntimeMods
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+tasks.matching { it.name == 'runClient' || it.name == 'runServer' }.configureEach {
+    dependsOn copyDevMods
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.fork = true
+    options.incremental = false
+    options.forkOptions.memoryMaximumSize = '2g'
+}
+
+processResources {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    def replaceProperties = [
+            minecraft_version       : minecraft_version,
+            minecraft_version_range : minecraft_version_range,
+            neo_version             : neo_version,
+            neo_version_range       : neo_version_range,
+            loader_version_range    : loader_version_range,
+            mod_id                  : mod_id,
+            mod_name                : mod_name,
+            mod_license             : mod_license,
+            mod_version             : mod_version,
+            mod_authors             : mod_authors,
+            mod_description         : mod_description,
+            create_version_range    : create_version_range,
+            sable_version_range     : sable_version_range,
+            simulated_version_range : simulated_version_range,
+            aeronautics_version_range: aeronautics_version_range,
+    ]
+    inputs.properties replaceProperties
+
+    filesMatching(['META-INF/neoforge.mods.toml']) {
+        expand replaceProperties
+    }
+
+    from('.') {
+        include 'NOTICE-SIMULATED.md'
+    }
+}
