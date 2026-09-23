@@ -340,6 +340,8 @@ public final class PhysicsToolGun extends SavedData implements SubLevelObserver 
         private final Quaterniond orientation = new Quaterniond();
         @Nullable
         private PhysicsConstraintHandle constraint;
+        private final Vector3d bakedAnchor = new Vector3d();
+        private final Quaterniond bakedOrientation = new Quaterniond();
 
         private DragSession(UUID playerId, ServerSubLevel subLevel) {
             this.playerId = playerId;
@@ -350,15 +352,22 @@ public final class PhysicsToolGun extends SavedData implements SubLevelObserver 
             if (subLevel.isRemoved()) {
                 return;
             }
-            if (constraint != null) {
-                constraint.remove();
-                constraint = null;
-            }
             PhysicsPipeline pipeline = physicsSystem.getPipeline();
-            constraint = pipeline.addConstraint(null, subLevel,
-                    new FreeConstraintConfiguration(JOMLConversion.ZERO, plotAnchor, orientation));
-            if (constraint == null) {
-                return;
+            boolean frameMoved = constraint == null || !constraint.isValid()
+                    || bakedAnchor.distanceSquared(plotAnchor) > 1.0E-6D
+                    || Math.abs(bakedOrientation.dot(orientation)) < 0.99999D;
+            if (frameMoved) {
+                if (constraint != null) {
+                    constraint.remove();
+                    constraint = null;
+                }
+                constraint = pipeline.addConstraint(null, subLevel,
+                        new FreeConstraintConfiguration(JOMLConversion.ZERO, plotAnchor, orientation));
+                if (constraint == null) {
+                    return;
+                }
+                bakedAnchor.set(plotAnchor);
+                bakedOrientation.set(orientation);
             }
             float angularStiffness = CATConfig.SERVER.toolGunAngularStiffness.get().floatValue();
             float angularDamping = CATConfig.SERVER.toolGunAngularDamping.get().floatValue();
