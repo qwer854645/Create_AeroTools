@@ -63,12 +63,16 @@ public final class DriveShaftRenderer {
             }
             Vec3 from = WorldSpace.worldLinkAnchor(be, be.facing(), partialTick);
             Vec3 to = WorldSpace.worldLinkAnchor(partner, partner.facing(), partialTick);
+            Vec3 mid = from.add(to).scale(0.5D);
+            // 视距粗筛：太远的轴不画
+            if (camera.distanceToSqr(mid) > 96.0D * 96.0D) {
+                continue;
+            }
             Vec3 delta = to.subtract(from);
             double length = delta.length();
             if (length < 0.05D) {
                 continue;
             }
-            Vec3 mid = from.add(to).scale(0.5D);
             Vec3 dir = delta.scale(1.0D / length);
             int light = LevelRenderer.getLightColor(level, BlockPos.containing(mid));
             DrivePortBlockEntity spinning = Math.abs(be.getSpeed()) >= Math.abs(partner.getSpeed()) ? be : partner;
