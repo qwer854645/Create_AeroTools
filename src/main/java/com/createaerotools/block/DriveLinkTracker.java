@@ -4,6 +4,7 @@ import com.createaerotools.config.CATConfig;
 import com.createaerotools.util.WorldSpace;
 import com.simibubi.create.AllItems;
 import dev.ryanhcode.sable.sublevel.SubLevel;
+import dev.ryanhcode.sable.sublevel.system.SubLevelPhysicsSystem;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
@@ -229,10 +230,21 @@ public final class DriveLinkTracker {
     }
 
     public static void unregister(DrivePortBlockEntity be) {
-        ports(be).remove(be.portId(), be);
+        // 迁移时新实例可能已接管同一个 UUID；旧实例的 remove 不能销毁新轴。
+        if (!ports(be).remove(be.portId(), be)) {
+            return;
+        }
         if (be.getLevel() != null && !be.getLevel().isClientSide && be.isMaster()) {
             DriveShaftPhysics.destroy(be.portId());
         }
+    }
+
+    /** 正常卸载不代表销毁；链接保留在方块 NBT 中，重新加载后恢复。 */
+    public static void onChunkUnloaded(DrivePortBlockEntity be) {
+        if (be.getLevel() != null && !be.getLevel().isClientSide) {
+            ORPHANS.remove(be.portId());
+        }
+        unregister(be);
     }
 
     public static Iterable<DrivePortBlockEntity> loaded() {
@@ -328,7 +340,8 @@ public final class DriveLinkTracker {
         DrivePortBlockEntity partner = partner(be);
         boolean relocating = ORPHANS.containsKey(be.portId())
                 || (be.partnerId() != null && ORPHANS.containsKey(be.partnerId()));
-        if (partner == null || relocating || WorldSpace.parentLevel(partner) != WorldSpace.parentLevel(be)) {
+        if (partner == null || relocating || partner.getLevel() != be.getLevel()
+                || WorldSpace.parentLevel(partner) != WorldSpace.parentLevel(be)) {
             be.setStatus(DrivePortBlockEntity.LinkStatus.WAITING);
             if (be.isMaster()) {
                 DriveShaftPhysics.destroy(be.portId());
@@ -361,10 +374,6 @@ public final class DriveLinkTracker {
         DriveShaftPhysics.sync(be, partner);
         be.setStatus(DrivePortBlockEntity.LinkStatus.CONNECTED);
         partner.setStatus(DrivePortBlockEntity.LinkStatus.CONNECTED);
-        // Create 动能网络只在同一 Level 内传播；跨结构时用转速同步兜底
-        if (be.getLevel() != partner.getLevel()) {
-            be.syncCrossLevelSpeed(partner);
-        }
     }
 
     /**
@@ -520,8 +529,8 @@ public final class DriveLinkTracker {
         });
     }
 
-    public static void physicsTick() {
-        DriveShaftPhysics.physicsTick();
+    public static void physicsTick(SubLevelPhysicsSystem physics, double timeStep) {
+        DriveShaftPhysics.physicsTick(physics, timeStep);
     }
 
     /**
@@ -602,10 +611,9 @@ public final class DriveLinkTracker {
         if (giveToPlayer && player != null) {
             // Always try inventory first — including creative. Skipping addItem on instabuild
             // made capsule recovery look like the shaft was swallowed.
-            if (player.addItem(shaft.copy())) {
-                return;
-            }
-            if (player.getAbilities().instabuild) {
+            // addItem 会原地扣除已入包数量；掉落同一栈中剩余的物品。
+            player.addItem(shaft);
+            if (shaft.isEmpty()) {
                 return;
             }
             Level level = player.level();

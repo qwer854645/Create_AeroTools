@@ -173,3 +173,57 @@ processResources {
         include 'NOTICE-SIMULATED.md'
     }
 }
+
+// 在打包前发现缺失翻译、损坏 JSON 和改名前遗留的资源命名空间。
+tasks.register('verifyModResources') {
+    group = 'verification'
+    description = 'Validate resource JSON and translation coverage'
+    inputs.dir('src/main/resources')
+    inputs.dir('src/main/java')
+    doLast {
+        def parser = new groovy.json.JsonSlurper()
+        def errors = []
+        fileTree('src/main/resources').matching { include '**/*.json' }.each { resource ->
+            try {
+                parser.parseText(resource.getText('UTF-8'))
+            } catch (Exception exception) {
+                errors.add("Invalid JSON: ${relativePath(resource)}: ${exception.message}")
+            }
+        }
+        def languages = ['en_us', 'zh_cn'].collectEntries { language ->
+            def resource = file("src/main/resources/assets/${mod_id}/lang/${language}.json")
+            [(language): parser.parseText(resource.getText('UTF-8'))]
+        }
+        def allKeys = languages.values().collectMany { it.keySet() }.toSet()
+        languages.each { language, translations ->
+            (allKeys - translations.keySet()).sort().each { key ->
+                errors.add("Missing ${language} translation: ${key}")
+            }
+        }
+        fileTree('src/main/java').matching { include '**/*.java' }.each { source ->
+            def contents = source.getText('UTF-8')
+            def matcher = contents =~ /Component\.translatable\(\s*"([^"]+)"/
+            matcher.each { match ->
+                def key = match[1]
+                if (key.contains(mod_id) && !allKeys.contains(key)) {
+                    errors.add("Missing translation: ${key} (${relativePath(source)})")
+                }
+            }
+        }
+        fileTree('src/main').matching {
+            include '**/*.java', '**/*.json', '**/*.toml'
+        }.each { source ->
+            if (source.getText('UTF-8').contains('createstructurecoupling')) {
+                errors.add("Legacy namespace: ${relativePath(source)}")
+            }
+        }
+        if (!errors.isEmpty()) {
+            throw new GradleException(errors.unique().join('\n'))
+        }
+        logger.lifecycle("Resource validation passed: ${allKeys.size()} translation keys in both languages")
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('verifyModResources')
+}

@@ -1,6 +1,7 @@
 package com.createaerotools.item;
 
 import com.createaerotools.block.DriveLinkTracker;
+import com.createaerotools.CreateAeroTools;
 import dev.ryanhcode.sable.api.SubLevelHelper;
 import dev.ryanhcode.sable.api.sublevel.ServerSubLevelContainer;
 import dev.ryanhcode.sable.api.sublevel.SubLevelContainer;
@@ -129,44 +130,40 @@ public final class StructureGroups {
         }
     }
 
-    /**
-     * 释放结果：已加载数量 + 仍应留在收纳器里的原始 payload（加载失败的那些）。
-     */
-    public record RestoreOutcome(int loaded, List<CompoundTag> remaining) {
+    /** 整组恢复结果；失败时 loaded 为零，调用方保留原始物品数据。 */
+    public record RestoreOutcome(int loaded) {
         public boolean anyLoaded() {
             return loaded > 0;
         }
-
-        public boolean allLoaded() {
-            return remaining.isEmpty() && loaded > 0;
-        }
     }
-
     /**
-     * 按依赖顺序加载结构。失败的条目放进 {@link RestoreOutcome#remaining}，
-     * 调用方只应从物品中移除已成功加载的，避免部分失败时整包清空。
+     * 整组恢复：任一结构失败就移除本次创建的结构，保留原始收纳数据供重试。
+     * 不允许部分释放，否则关节的 UUID 依赖会指向尚未恢复的结构。
      */
     public static RestoreOutcome restore(ServerLevel level, List<CompoundTag> stored, Vec3 releaseAt, @Nullable UUID anchorId) {
         Map<UUID, UUID> remap = new HashMap<>();
         Vec3 anchorPos = null;
-        record Entry(CompoundTag original, CompoundTag working) {
+        record Entry(CompoundTag working) {
         }
         List<Entry> entries = new ArrayList<>();
         for (CompoundTag original : stored) {
             if (!original.hasUUID("uuid")) {
-                continue;
+                return new RestoreOutcome(0);
             }
             CompoundTag payload = original.copy();
             UUID oldId = payload.getUUID("uuid");
+            if (remap.containsKey(oldId)) {
+                return new RestoreOutcome(0);
+            }
             UUID newId = UUID.randomUUID();
             remap.put(oldId, newId);
             if (anchorId != null && oldId.equals(anchorId) && payload.contains("pose")) {
                 anchorPos = CapsulePayloads.posePosition(payload);
             }
-            entries.add(new Entry(original, payload));
+            entries.add(new Entry(payload));
         }
         if (entries.isEmpty()) {
-            return new RestoreOutcome(0, List.copyOf(stored));
+            return new RestoreOutcome(0);
         }
         if (anchorPos == null && entries.getFirst().working.contains("pose")) {
             anchorPos = CapsulePayloads.posePosition(entries.getFirst().working);
@@ -180,42 +177,48 @@ public final class StructureGroups {
             CapsulePayloads.translateBy(entry.working, delta.x, delta.y, delta.z);
         }
 
-        Map<UUID, Entry> byNewId = new HashMap<>();
-        for (Entry entry : entries) {
-            byNewId.put(entry.working.getUUID("uuid"), entry);
-        }
         List<CompoundTag> worklist = new ArrayList<>();
         for (Entry entry : entries) {
             worklist.add(entry.working);
         }
 
         int loaded = 0;
-        List<CompoundTag> remaining = new ArrayList<>();
-        // 缺 uuid 的原始条目原样保留
-        for (CompoundTag original : stored) {
-            if (!original.hasUUID("uuid")) {
-                remaining.add(original.copy());
-            }
-        }
-        for (CompoundTag payload : sortByDependencies(worklist)) {
-            Entry entry = byNewId.get(payload.getUUID("uuid"));
-            ServerSubLevel sub = SubLevelSerializer.fullyLoad(level, SubLevelSerializer.fromData(payload));
-            if (sub == null || sub.isRemoved()) {
-                if (entry != null) {
-                    remaining.add(entry.original.copy());
+        try {
+            for (CompoundTag payload : sortByDependencies(worklist)) {
+                ServerSubLevel sub = SubLevelSerializer.fullyLoad(level, SubLevelSerializer.fromData(payload));
+                if (sub == null || sub.isRemoved()) {
+                    throw new IllegalStateException("Structure did not load: " + payload.getUUID("uuid"));
                 }
-                continue;
+                sub.latestLinearVelocity.set(0.0D, 0.0D, 0.0D);
+                sub.latestAngularVelocity.set(0.0D, 0.0D, 0.0D);
+                if (payload.contains("pose")) {
+                    Vec3 pos = CapsulePayloads.posePosition(payload);
+                    sub.logicalPose().position().set(pos.x, pos.y, pos.z);
+                }
+                sub.updateLastPose();
+                loaded++;
             }
-            sub.latestLinearVelocity.set(0.0D, 0.0D, 0.0D);
-            sub.latestAngularVelocity.set(0.0D, 0.0D, 0.0D);
-            if (payload.contains("pose")) {
-                Vec3 pos = CapsulePayloads.posePosition(payload);
-                sub.logicalPose().position().set(pos.x, pos.y, pos.z);
+        } catch (RuntimeException exception) {
+            // 同时检查容器：加载器可能先注册结构，再在后续步骤抛异常。
+            ServerSubLevelContainer container = SubLevelContainer.getContainer(level);
+            List<ServerSubLevel> created = new ArrayList<>();
+            for (UUID id : remap.values()) {
+                var sub = container.getSubLevel(id);
+                if (sub instanceof ServerSubLevel server && !server.isRemoved()) {
+                    created.add(server);
+                }
             }
-            sub.updateLastPose();
-            loaded++;
+            beginRemoval(created);
+            try {
+                removeAll(level, created);
+            } finally {
+                endRemoval();
+            }
+            CreateAeroTools.LOGGER.warn("Could not restore structure group; rolled back {} structures",
+                    created.size(), exception);
+            return new RestoreOutcome(0);
         }
-        return new RestoreOutcome(loaded, List.copyOf(remaining));
+        return new RestoreOutcome(loaded);
     }
 
     public static boolean contains(List<ServerSubLevel> group, @Nullable UUID structureId) {

@@ -109,7 +109,7 @@ public class CreateAeroTools {
 
     /** Sable 物理步之后：同步万向轴约束与工具枪关节。 */
     private static void onPhysicsTick(ForgeSablePostPhysicsTickEvent event) {
-        DriveLinkTracker.physicsTick();
+        DriveLinkTracker.physicsTick(event.getPhysicsSystem(), event.getTimeStep());
         PhysicsToolGun.physicsTick(event.getPhysicsSystem());
     }
 

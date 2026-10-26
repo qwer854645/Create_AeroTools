@@ -57,12 +57,6 @@ public final class CapsulePayloads {
         payload.remove("loading_dependencies");
     }
 
-    /** 平移 pose / 包围盒，使结构 COM 落在 {@code at}。 */
-    public static void translateTo(CompoundTag payload, Vec3 at) {
-        Pose3d pose = readPose(payload);
-        translateBy(payload, at.x - pose.position().x, at.y - pose.position().y, at.z - pose.position().z);
-    }
-
     public static void translateBy(CompoundTag payload, double dx, double dy, double dz) {
         if (dx == 0.0D && dy == 0.0D && dz == 0.0D) {
             return;

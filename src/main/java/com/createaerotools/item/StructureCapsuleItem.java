@@ -32,7 +32,6 @@ import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
-import java.util.UUID;
 
 /**
  * 基础结构收纳器：收纳 / 释放单个物理结构。
@@ -193,20 +192,14 @@ public class StructureCapsuleItem extends Item {
         }
 
         CompoundTag payload = itemTag.getCompound(TAG_STRUCTURE).copy();
-        payload.putUUID("uuid", UUID.randomUUID());
         CapsulePayloads.stripForBasicCapsule(payload);
-        CapsulePayloads.translateTo(payload, at);
-
-        ServerSubLevel loaded = SubLevelSerializer.fullyLoad(serverLevel, SubLevelSerializer.fromData(payload));
-        if (loaded == null || loaded.isRemoved()) {
+        // 与高级收纳器共用加载与回滚路径；加载器抛异常也不能留下半个结构。
+        StructureGroups.RestoreOutcome outcome = StructureGroups.restore(serverLevel, List.of(payload), at, null);
+        if (!outcome.anyLoaded()) {
             player.displayClientMessage(Component.translatable("createaerotools.message.capsule_release_fail")
                     .withStyle(ChatFormatting.RED), true);
             return false;
         }
-        loaded.latestLinearVelocity.set(0.0D, 0.0D, 0.0D);
-        loaded.latestAngularVelocity.set(0.0D, 0.0D, 0.0D);
-        loaded.logicalPose().position().set(at.x, at.y, at.z);
-        loaded.updateLastPose();
 
         itemTag.remove(TAG_STRUCTURE);
         itemTag.remove(CapsulePayloads.TAG_NAME);

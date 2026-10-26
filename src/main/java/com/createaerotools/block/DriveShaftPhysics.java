@@ -102,10 +102,16 @@ public final class DriveShaftPhysics {
         }
     }
 
-    public static void physicsTick() {
+    public static void physicsTick(SubLevelPhysicsSystem physics, double timeStep) {
+        if (!Double.isFinite(timeStep) || timeStep <= 0.0D) {
+            return;
+        }
         Iterator<Map.Entry<UUID, Shaft>> iterator = SHAFTS.entrySet().iterator();
         while (iterator.hasNext()) {
             Map.Entry<UUID, Shaft> entry = iterator.next();
+            if (entry.getValue().level != physics.getLevel()) {
+                continue;
+            }
             DrivePortBlockEntity master = DriveLinkTracker.loadedMaster(entry.getKey());
             if (master == null || master.isRemoved()) {
                 entry.getValue().remove();
@@ -119,7 +125,7 @@ public final class DriveShaftPhysics {
                 iterator.remove();
                 continue;
             }
-            entry.getValue().keep(master, partner);
+            entry.getValue().keep(master, partner, timeStep);
         }
     }
 
@@ -139,7 +145,6 @@ public final class DriveShaftPhysics {
         private double commandedLength;
         private boolean springs;
         private boolean pneumatic;
-        private long lastNanos;
         /** Rebuild once when actuation arms so joint zero matches the live length. */
         private boolean rebaseOnEngage;
         private int resizeHold;
@@ -161,7 +166,7 @@ public final class DriveShaftPhysics {
             return true;
         }
 
-        private void keep(DrivePortBlockEntity a, DrivePortBlockEntity b) {
+        private void keep(DrivePortBlockEntity a, DrivePortBlockEntity b, double timeStep) {
             if (isLive()) {
                 pneumatic = a.controlsLength();
                 boolean wantSpring = a.springsToTarget();
@@ -176,25 +181,13 @@ public final class DriveShaftPhysics {
                     // Idle pneumatic must resize like andesite — otherwise the collider stays at
                     // the old length while the visible shaft stretches and "has no collision".
                     if (shouldResize(a, b)) {
-                        remove();
-                        try {
-                            create(a, b);
-                        } catch (RuntimeException exception) {
-                            remove();
-                            retry = 20;
-                        }
+                        rebuild(a, b);
                     }
                     return;
                 }
                 if (pneumatic && (rebaseOnEngage || shouldResize(a, b))) {
                     rebaseOnEngage = false;
-                    remove();
-                    try {
-                        create(a, b);
-                    } catch (RuntimeException exception) {
-                        remove();
-                        retry = 20;
-                    }
+                    rebuild(a, b);
                     return;
                 }
                 double desired = a.desiredLength();
@@ -202,7 +195,7 @@ public final class DriveShaftPhysics {
                     desired = createLength;
                 }
                 if (pneumatic) {
-                    tickPneumatic(a, b, desired);
+                    tickPneumatic(a, b, desired, timeStep);
                 } else {
                     commandedLength = desired;
                     springTarget = createLength - commandedLength;
@@ -227,15 +220,14 @@ public final class DriveShaftPhysics {
             }
         }
 
-        private void tickPneumatic(DrivePortBlockEntity a, DrivePortBlockEntity b, double desired) {
+        private void tickPneumatic(DrivePortBlockEntity a, DrivePortBlockEntity b, double desired, double timeStep) {
             double current = WorldSpace.worldLinkAnchor(a, a.facing())
                     .distanceTo(WorldSpace.worldLinkAnchor(b, b.facing()));
             if (current < 0.35D) {
                 return;
             }
-            double dt = tickDelta();
             double speed = CATConfig.SERVER.pneumaticActuationSpeed.get();
-            commandedLength = moveToward(commandedLength, desired, speed * dt);
+            commandedLength = moveToward(commandedLength, desired, speed * timeStep);
             // Do not let the spring target race more than a short lead ahead of reality.
             if (commandedLength > current + PNEUMATIC_MAX_LEAD) {
                 commandedLength = current + PNEUMATIC_MAX_LEAD;
@@ -249,29 +241,31 @@ public final class DriveShaftPhysics {
             }
         }
 
-        private double tickDelta() {
-            long now = System.nanoTime();
-            double dt;
-            if (lastNanos == 0L) {
-                dt = 1.0D / 60.0D;
-            } else {
-                dt = (now - lastNanos) * 1.0E-9D;
-                if (dt < 1.0E-4D) {
-                    dt = 1.0E-4D;
-                } else if (dt > 0.05D) {
-                    dt = 0.05D;
-                }
-            }
-            lastNanos = now;
-            return dt;
-        }
-
         private static double moveToward(double current, double target, double maxDelta) {
             double delta = target - current;
             if (Math.abs(delta) <= maxDelta) {
                 return target;
             }
             return current + Math.copySign(maxDelta, delta);
+        }
+
+        /** Sable 不支持原位修改盒形状；重建时延续速度，避免凭空停止杆的运动。 */
+        private void rebuild(DrivePortBlockEntity a, DrivePortBlockEntity b) {
+            PhysicsPipeline pipeline = SubLevelPhysicsSystem.require(level).getPipeline();
+            Vector3d linear = pipeline.getLinearVelocity(box, new Vector3d());
+            Vector3d angular = pipeline.getAngularVelocity(box, new Vector3d());
+            remove();
+            try {
+                create(a, b);
+                if (isLive()) {
+                    pipeline.resetVelocity(box);
+                    pipeline.addLinearAndAngularVelocity(box, linear, angular);
+                }
+            } catch (RuntimeException exception) {
+                remove();
+                retry = 20;
+                CreateAeroTools.LOGGER.warn("Could not rebuild drive shaft {}", a.portId(), exception);
+            }
         }
 
         private boolean needsResize(DrivePortBlockEntity a, DrivePortBlockEntity b) {
@@ -320,7 +314,6 @@ public final class DriveShaftPhysics {
             pneumatic = a.controlsLength();
             createLength = length;
             commandedLength = length;
-            lastNanos = 0L;
             rebaseOnEngage = false;
             double maxAngle = Math.toRadians(CATConfig.SERVER.driveMaxAngle.get());
 

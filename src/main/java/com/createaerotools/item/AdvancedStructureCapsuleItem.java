@@ -325,37 +325,14 @@ public class AdvancedStructureCapsuleItem extends Item {
             return false;
         }
 
-        if (outcome.allLoaded()) {
-            itemTag.remove(TAG_STRUCTURES);
-            itemTag.remove(CapsulePayloads.TAG_NAME);
-            itemTag.remove(TAG_COUNT);
-            itemTag.remove(TAG_SIZE);
-            itemTag.remove(TAG_ANCHOR);
-            itemTag.remove(TAG_BOUND_POS);
-            itemTag.remove(TAG_BOUND_DIM);
-        } else {
-            // 部分失败：只清掉已成功释放的，其余留在收纳器里
-            ListTag kept = new ListTag();
-            for (CompoundTag leftover : outcome.remaining()) {
-                kept.add(leftover);
-            }
-            itemTag.put(TAG_STRUCTURES, kept);
-            itemTag.putInt(TAG_COUNT, kept.size());
-            itemTag.putDouble(TAG_SIZE, CapsulePower.sizeOfStored(outcome.remaining()));
-            if (itemTag.hasUUID(TAG_ANCHOR)) {
-                UUID oldAnchor = itemTag.getUUID(TAG_ANCHOR);
-                boolean anchorKept = false;
-                for (CompoundTag leftover : outcome.remaining()) {
-                    if (leftover.hasUUID("uuid") && oldAnchor.equals(leftover.getUUID("uuid"))) {
-                        anchorKept = true;
-                        break;
-                    }
-                }
-                if (!anchorKept) {
-                    itemTag.remove(TAG_ANCHOR);
-                }
-            }
-        }
+        // 整组恢复成功后才清空；失败路径在上面返回，收纳数据保持原样。
+        itemTag.remove(TAG_STRUCTURES);
+        itemTag.remove(CapsulePayloads.TAG_NAME);
+        itemTag.remove(TAG_COUNT);
+        itemTag.remove(TAG_SIZE);
+        itemTag.remove(TAG_ANCHOR);
+        itemTag.remove(TAG_BOUND_POS);
+        itemTag.remove(TAG_BOUND_DIM);
         if (itemTag.isEmpty()) {
             stack.remove(DataComponents.CUSTOM_DATA);
         } else {
